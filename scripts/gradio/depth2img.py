@@ -7,6 +7,8 @@ from omegaconf import OmegaConf
 from einops import repeat, rearrange
 from pytorch_lightning import seed_everything
 from imwatermark import WatermarkEncoder
+import torch_directml
+device = torch_directml.device()
 
 from scripts.txt2img import put_watermark
 from ldm.util import instantiate_from_config
@@ -22,7 +24,7 @@ def initialize_model(config, ckpt):
     model.load_state_dict(torch.load(ckpt)["state_dict"], strict=False)
 
     device = torch.device(
-        "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        device) #if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
     sampler = DDIMSampler(model)
     return sampler
@@ -55,7 +57,7 @@ def make_batch_sd(
 def paint(sampler, image, prompt, t_enc, seed, scale, num_samples=1, callback=None,
           do_full_sample=False):
     device = torch.device(
-        "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        device) #if torch.cuda.is_available() else torch.device("cpu")
     model = sampler.model
     seed_everything(seed)
 
@@ -65,7 +67,7 @@ def paint(sampler, image, prompt, t_enc, seed, scale, num_samples=1, callback=No
     wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
 
     with torch.no_grad(),\
-            torch.autocast("cuda"):
+            torch.autocast(device):
         batch = make_batch_sd(
             image, txt=prompt, device=device, num_samples=num_samples)
         z = model.get_first_stage_encoding(model.encode_first_stage(

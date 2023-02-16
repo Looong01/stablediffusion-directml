@@ -12,6 +12,8 @@ from pytorch_lightning import seed_everything
 from torch import autocast
 from contextlib import nullcontext
 from imwatermark import WatermarkEncoder
+import torch_directml
+device = torch_directml.device()
 
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -25,7 +27,7 @@ def chunk(it, size):
     return iter(lambda: tuple(islice(it, size)), ())
 
 
-def load_model_from_config(config, ckpt, device=torch.device("cuda"), verbose=False):
+def load_model_from_config(config, ckpt, device=device, verbose=False):
     print(f"Loading model from {ckpt}")
     pl_sd = torch.load(ckpt, map_location="cpu")
     if "global_step" in pl_sd:
@@ -40,8 +42,8 @@ def load_model_from_config(config, ckpt, device=torch.device("cuda"), verbose=Fa
         print("unexpected keys:")
         print(u)
 
-    if device == torch.device("cuda"):
-        model.cuda()
+    if device == torch.device(device):
+        model.to(device)
     elif device == torch.device("cpu"):
         model.cpu()
         model.cond_stage_model.device = "cpu"
@@ -181,7 +183,7 @@ def parse_args():
         "--device",
         type=str,
         help="Device on which Stable Diffusion will be run",
-        choices=["cpu", "cuda"],
+        choices=["cpu", "dml"],
         default="cpu"
     )
     parser.add_argument(
@@ -215,7 +217,7 @@ def main(opt):
     seed_everything(opt.seed)
 
     config = OmegaConf.load(f"{opt.config}")
-    device = torch.device("cuda") if opt.device == "cuda" else torch.device("cpu")
+    device = torch.device(device) if opt.device == "dml" else torch.device("cpu")
     model = load_model_from_config(config, f"{opt.ckpt}", device)
 
     if opt.plms:

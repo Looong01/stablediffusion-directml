@@ -7,6 +7,8 @@ from omegaconf import OmegaConf
 from einops import repeat, rearrange
 from pytorch_lightning import seed_everything
 from imwatermark import WatermarkEncoder
+import torch_directml
+device = torch_directml.device()
 
 from scripts.txt2img import put_watermark
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -23,7 +25,7 @@ def initialize_model(config, ckpt):
     model.load_state_dict(torch.load(ckpt)["state_dict"], strict=False)
 
     device = torch.device(
-        "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        device) #if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
     sampler = DDIMSampler(model)
     return sampler
@@ -55,7 +57,7 @@ def make_noise_augmentation(model, batch, noise_level=None):
 
 def paint(sampler, image, prompt, seed, scale, h, w, steps, num_samples=1, callback=None, eta=0., noise_level=None):
     device = torch.device(
-        "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        device) #if torch.cuda.is_available() else torch.device("cpu")
     model = sampler.model
     seed_everything(seed)
     prng = np.random.RandomState(seed)
@@ -68,7 +70,7 @@ def paint(sampler, image, prompt, seed, scale, h, w, steps, num_samples=1, callb
     wm_encoder = WatermarkEncoder()
     wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
     with torch.no_grad(),\
-            torch.autocast("cuda"):
+            torch.autocast(device):
         batch = make_batch_sd(
             image, txt=prompt, device=device, num_samples=num_samples)
         c = model.cond_stage_model.encode(batch["txt"])

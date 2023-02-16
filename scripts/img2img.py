@@ -14,6 +14,8 @@ from torch import autocast
 from contextlib import nullcontext
 from pytorch_lightning import seed_everything
 from imwatermark import WatermarkEncoder
+import torch_directml
+device = torch_directml.device()
 
 
 from scripts.txt2img import put_watermark
@@ -41,7 +43,7 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
+    model.to(device)
     model.eval()
     return model
 
@@ -187,7 +189,7 @@ def main():
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(device) #if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
 
     sampler = DDIMSampler(model)
@@ -231,7 +233,7 @@ def main():
 
     precision_scope = autocast if opt.precision == "autocast" else nullcontext
     with torch.no_grad():
-        with precision_scope("cuda"):
+        with precision_scope(device):
             with model.ema_scope():
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
